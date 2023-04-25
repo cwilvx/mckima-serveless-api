@@ -336,10 +336,16 @@ app.post("/api/orders", async (req, res) => {
   res.send({ message: "order added" });
 });
 
-// get a single order by session_id property
+// // get a single order by session_id property
+// app.get("/api/orders/:session_id", async (req, res) => {
+//   const order = await OrderItem.findOne({ session_id: req.params.session_id });
+//   res.send({ order });
+// });
+
+// get all orders by session_id
 app.get("/api/orders/:session_id", async (req, res) => {
-  const order = await OrderItem.findOne({ session_id: req.params.session_id });
-  res.send({ order });
+  const orders = await OrderItem.find({ session_id: req.params.session_id });
+  res.send({ orders });
 });
 
 // get all orders
