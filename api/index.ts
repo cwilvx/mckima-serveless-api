@@ -10,7 +10,6 @@ app.use(bodyParser.json());
 app.use(bodyParser.urlencoded({ extended: false }));
 
 interface Item {
-  id: number;
   name: string;
   price: number;
   description: string;
@@ -19,7 +18,35 @@ interface Item {
   ingredients: string[];
   optional_ingredients: string[];
   selected_ingredients: string[];
+  available: boolean;
 }
+
+interface OrderItem extends Item {
+  session_id: string;
+  status: string;
+  eta: string;
+  meals: Item[];
+}
+
+const mealSchema = new mongoose.Schema({
+  name: String,
+  image: String,
+  description: String,
+  price: Number,
+  ingredients: Array,
+  optional_ingredients: Array,
+  available: Boolean,
+});
+
+const OrderItemSchema = new mongoose.Schema({
+  session_id: String,
+  meals: Array,
+  delivered: Boolean,
+  table_number: Number,
+  time: String,
+});
+
+const OrderItem = mongoose.model("OrderItem", OrderItemSchema);
 
 const calcPrice = (name: string, multiplier = 5) => {
   const letters = "abcdefghijklmnopqrstuvwxyz";
@@ -240,26 +267,19 @@ const meals = [
   },
 ].map((f, index) => ({
   ...f,
-  id: index,
   price: calcPrice(f.name),
+  available: true,
   ingredients: ingredients[index].ingredients,
   optional_ingredients: ingredients[index].optional_ingredients,
 })) as Item[];
+
+console.log(JSON.stringify(meals[0]));
 
 mongoose.connect(
   `mongodb+srv://dummy:${process.env.MONGO_ATLAS_PASSWORD}@cluster0.davqwlu.mongodb.net/?retryWrites=true&w=majority`
 );
 
-const mealSchema = new mongoose.Schema({
-  name: String,
-  image: String,
-  description: String,
-  price: Number,
-  ingredients: Array,
-  optional_ingredients: Array,
-});
-
-const Mongo = mongoose.model("Child", mealSchema);
+const Meal = mongoose.model("Child", mealSchema);
 
 app.get("/api", (req, res) => {
   res.send({
@@ -289,25 +309,146 @@ app.get("/api", (req, res) => {
 });
 
 app.get("/api/meals", async (req, res) => {
-  // fetch all meals from db
-  const meals = await Mongo.find();
+  const meals = await Meal.find();
   res.send({ meals });
 });
 
 app.get("/api/addmeals", (req, res) => {
-  // add all meals to db all at once
   meals.forEach(async (meal) => {
-    const mongoMeal = new Mongo(meal);
+    const mongoMeal = new Meal(meal);
     await mongoMeal.save();
   });
 
   res.send({ message: "done" });
 });
 
-// get meal by id
 app.get("/api/meals/:id", async (req, res) => {
-  const meal = await Mongo.findById(req.params.id);
+  const meal = await Meal.findById(req.params.id);
   res.send({ meal });
+});
+
+app.post("/api/orders", async (req, res) => {
+  // extract the order from the request body
+  const data = { ...req.body, delivered: false };
+  const order = new OrderItem(data);
+  await order.save();
+
+  res.send({ message: "order added" });
+});
+
+// get a single order by session_id property
+app.get("/api/orders/:session_id", async (req, res) => {
+  const order = await OrderItem.findOne({ session_id: req.params.session_id });
+  res.send({ order });
+});
+
+// get all orders
+app.get("/api/orders", async (req, res) => {
+  const orders = await OrderItem.find();
+  res.send({ orders });
+});
+
+// remove all orders
+app.delete("/api/orders", async (req, res) => {
+  await OrderItem.deleteMany();
+  res.send({ message: "all orders deleted" });
+});
+
+// mark an order as delivered by object id
+app.put("/api/orders/deliver/:id", async (req, res) => {
+  const order = await OrderItem.findById(req.params.id);
+  order.delivered = !order.delivered;
+
+  await order.save();
+  res.send({ message: "order marked as delivered" });
+});
+
+// check if order is delivered by session id
+app.get("/api/orders/delivered/:session_id", async (req, res) => {
+  const status = await OrderItem.findOne({
+    session_id: req.params.session_id,
+  }).select("delivered");
+
+  res.send({ status });
+});
+
+// delete an order by object id
+app.delete("/api/orders/:id", async (req, res) => {
+  await OrderItem.findByIdAndDelete(req.params.id);
+  res.send({ message: "order deleted" });
+});
+
+// get all delivered orders
+app.get("/api/orders/delivered", async (req, res) => {
+  const orders = await OrderItem.find({ delivered: true });
+
+  res.send({ orders });
+});
+
+// add a new meal
+app.post("/api/meals", async (req, res) => {
+  const meal_data = req.body;
+
+  // split ingredients and optional_ingredients using ,
+
+  const ingredients = meal_data.ingredients.split(",");
+  let optional = [];
+
+  if (meal_data.optional_ingredients != "") {
+    optional = meal_data.optional_ingredients.split(",");
+  }
+  const meal = new Meal({
+    ...meal_data,
+    ingredients,
+    optional_ingredients: optional,
+  });
+
+  await meal.save();
+
+  res.send({ message: "meal added" });
+});
+
+// edit meal details
+app.put("/api/meals/:id", async (req, res) => {
+  const meal_data = req.body;
+
+  // replace the previous meal with the new one using destructuring
+  const meal = await Meal.findById(req.params.id);
+  meal.name = meal_data.name;
+  meal.description = meal_data.description;
+  meal.price = meal_data.price;
+  meal.image = meal_data.image;
+
+  // split ingredients and optional_ingredients using ,
+  meal.ingredients = meal_data.ingredients.split(",");
+  if (meal_data.optional_ingredients != "") {
+    meal.optional_ingredients = meal_data.optional_ingredients.split(",");
+  }
+
+  await meal.save();
+
+  res.send({ message: "meal updated" });
+});
+
+// delete meal by id
+app.delete("/api/meals/:id", async (req, res) => {
+  await Meal.findByIdAndDelete(req.params.id);
+  res.send({ message: "meal deleted" });
+});
+
+// mark meal as available or unavailable
+app.put("/api/meals/available/:id", async (req, res) => {
+  const meal = await Meal.findById(req.params.id);
+  meal.available = !meal.available;
+  await meal.save();
+
+  res.send({ message: "meal availability updated" });
+});
+
+// delete all meals
+app.delete("/api/meals", async (req, res) => {
+  await Meal.deleteMany();
+  res.send({ message: "all meals deleted" });
 });
 
 // Start the server
@@ -315,3 +456,16 @@ const port = 3000;
 app.listen(port, () => {
   console.log(`Server listening on  http://localhost:${port}`);
 });
+
+// admin objectives
+// - add new meals
+// - edit existing meals
+// - delete meals
+// - add new ingredients
+// - edit existing ingredients
+// - delete ingredients
+
+// view orders
+// verify orders
+// cancel orders
+//
