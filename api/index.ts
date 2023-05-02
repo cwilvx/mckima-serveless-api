@@ -20,7 +20,7 @@ app.use(cookieParser());
 app.use(
   cors({
     credentials: true,
-    origin: "https://mckima-serveless-api.vercel.app",
+    origin: "https://mckimatas.vercel.app",
     exposedHeaders: ["set-cookie"],
   })
 );
