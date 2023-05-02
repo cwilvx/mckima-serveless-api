@@ -1,11 +1,16 @@
-import bodyParser from "body-parser";
+// var cors = require("cors");
+
+import cors from "cors";
 import express from "express";
+import bodyParser from "body-parser";
+import { v4 as uuidv4 } from "uuid";
+import cookieParser from "cookie-parser";
+
+// var cookieParser = require("cookie-parser");
+
+
 import { meals } from "../data/meals";
 
-import { v4 as uuidv4 } from "uuid";
-
-var cors = require("cors");
-var cookieParser = require("cookie-parser");
 
 import { OrderItem, Meal, AdminUser, AdminSession } from "../schemas";
 
@@ -112,6 +117,7 @@ app.post("/api/meals", async (req, res) => {
   if (meal_data.optional_ingredients != "") {
     optional = meal_data.optional_ingredients.split(",");
   }
+
   const meal = new Meal({
     ...meal_data,
     ingredients,
@@ -128,7 +134,7 @@ app.post("/api/meals", async (req, res) => {
 app.put("/api/meals/:id", async (req, res) => {
   const meal_data = req.body;
 
-  // replace the previous meal with the new one using destructuring
+  // replace the previous meal with the new meal
   const meal = await Meal.findById(req.params.id);
   meal.name = meal_data.name;
   meal.description = meal_data.description;
@@ -221,7 +227,6 @@ app.post("/api/logout", async (req, res) => {
 
   // clear the cookie
   res.clearCookie("session_key");
-
   res.send({ message: "logout successful" });
 });
 
@@ -230,16 +235,3 @@ const port = 3000;
 app.listen(port, () => {
   console.log(`Server listening on  http://localhost:${port}`);
 });
-
-// admin objectives
-// - add new meals
-// - edit existing meals
-// - delete meals
-// - add new ingredients
-// - edit existing ingredients
-// - delete ingredients
-
-// view orders
-// verify orders
-// cancel orders
-//

@@ -36,3 +36,16 @@ export const OrderItem = mongoose.model("OrderItem", OrderItemSchema);
 export const Meal = mongoose.model("Meal", mealSchema);
 export const AdminUser = mongoose.model("AdminUser", AdminUserSchema);
 export const AdminSession = mongoose.model("AdminSession", AdminSessionSchema);
+
+// 🔒 function to add defaut admin user 🔒
+
+// function addDefaultAdminUser() {
+//   const adminUser = new AdminUser({
+//     username: "admin",
+//     password_hash: "<sha256 hash of password>",
+//   });
+
+//   adminUser.save();
+// }
+
+// addDefaultAdminUser();
